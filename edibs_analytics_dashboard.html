@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EDIBS Analytics — Dashboard Estratégico</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a3d;
+    --accent: #7c5cbf;
+    --accent2: #3ecfcf;
+    --accent3: #f0a500;
+    --accent4: #e05c7a;
+    --text: #e8e8f0;
+    --muted: #6b6b8a;
+    --green: #2fcf7a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* HEADER */
+  header {
+    position: relative; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 24px 40px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,10,15,0.8);
+    backdrop-filter: blur(12px);
+    position: sticky; top: 0;
+  }
+
+  .logo {
+    display: flex; align-items: center; gap: 14px;
+  }
+  .logo-mark {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 800;
+    color: white;
+  }
+  .logo-text { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo-sub { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+
+  .header-meta { display: flex; gap: 24px; align-items: center; }
+  .status-pill {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    padding: 6px 14px; border-radius: 20px;
+    background: rgba(46,207,122,0.1); border: 1px solid rgba(46,207,122,0.3);
+    color: var(--green); letter-spacing: 1px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .status-pill::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* NAV TABS */
+  nav {
+    display: flex; gap: 4px; padding: 20px 40px 0;
+    border-bottom: 1px solid var(--border);
+    position: relative; z-index: 5;
+  }
+  .tab {
+    padding: 10px 22px;
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+    font-size: 13px; font-weight: 600;
+    color: var(--muted);
+    border: 1px solid transparent;
+    border-bottom: none;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+    background: none;
+  }
+  .tab:hover { color: var(--text); background: var(--surface); }
+  .tab.active {
+    color: var(--text);
+    background: var(--surface);
+    border-color: var(--border);
+    border-bottom-color: var(--surface);
+    margin-bottom: -1px;
+  }
+
+  /* MAIN CONTENT */
+  main { position: relative; z-index: 2; padding: 32px 40px; }
+
+  .section { display: none; }
+  .section.active { display: block; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  /* KPI STRIP */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px; margin-bottom: 28px;
+  }
+
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    position: relative; overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .kpi-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .kpi-card::after {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--accent-color, var(--accent));
+    opacity: 0.6;
+  }
+  .kpi-label {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .kpi-value {
+    font-size: 28px; font-weight: 800; letter-spacing: -1px;
+    line-height: 1;
+  }
+  .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .kpi-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 11px; font-weight: 600;
+    padding: 2px 7px; border-radius: 4px;
+  }
+  .kpi-badge.up { background: rgba(46,207,122,0.15); color: var(--green); }
+  .kpi-badge.warn { background: rgba(240,165,0,0.15); color: var(--accent3); }
+
+  /* CHARTS */
+  .chart-grid {
+    display: grid; gap: 20px;
+    grid-template-columns: 1fr 1fr;
+    margin-bottom: 24px;
+  }
+  .chart-grid.thirds { grid-template-columns: 2fr 1fr; }
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+  }
+  .chart-title {
+    font-size: 14px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.3px;
+  }
+  .chart-subtitle {
+    font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted);
+    margin-bottom: 20px;
+  }
+  .chart-wrap { position: relative; height: 220px; }
+  .chart-wrap.tall { height: 280px; }
+
+  /* TABLE */
+  .data-table {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+  }
+  .data-table th {
+    font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1px;
+    text-transform: uppercase; color: var(--muted);
+    padding: 10px 14px; text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(42,42,61,0.5);
+    vertical-align: middle;
+  }
+  .data-table tr:hover td { background: var(--surface2); }
+  .data-table tr:last-child td { border-bottom: none; }
+
+  .badge {
+    display: inline-block; padding: 3px 9px; border-radius: 4px;
+    font-size: 11px; font-weight: 600; font-family: 'DM Mono', monospace;
+  }
+  .badge-purple { background: rgba(124,92,191,0.2); color: #a98de0; }
+  .badge-cyan { background: rgba(62,207,207,0.15); color: var(--accent2); }
+  .badge-gold { background: rgba(240,165,0,0.15); color: var(--accent3); }
+  .badge-pink { background: rgba(224,92,122,0.15); color: var(--accent4); }
+  .badge-green { background: rgba(46,207,122,0.15); color: var(--green); }
+
+  .metric-bar-wrap {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .metric-bar {
+    flex: 1; height: 6px; background: var(--surface2);
+    border-radius: 3px; overflow: hidden;
+  }
+  .metric-bar-fill {
+    height: 100%; border-radius: 3px;
+    background: var(--fill-color, var(--accent));
+  }
+  .metric-val { font-family: 'DM Mono', monospace; font-size: 12px; width: 48px; text-align: right; }
+
+  /* INSIGHTS */
+  .insights-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+  .insight-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px; padding: 22px;
+    border-left: 3px solid var(--ic-color, var(--accent));
+  }
+  .insight-tag {
+    font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--ic-color, var(--accent));
+    margin-bottom: 10px;
+  }
+  .insight-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+  .insight-body { font-size: 13px; color: #a0a0ba; line-height: 1.6; }
+  .insight-metric {
+    margin-top: 12px; font-family: 'DM Mono', monospace;
+    font-size: 22px; font-weight: 500; color: var(--ic-color, var(--accent));
+  }
+
+  /* MODEL SECTION */
+  .model-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px; padding: 32px;
+    text-align: center; margin-bottom: 24px;
+  }
+
+  .schema-svg { width: 100%; max-width: 900px; height: 420px; }
+
+  /* ISSUES */
+  .issues-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .issue-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px;
+  }
+  .issue-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+  }
+  .issue-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+  }
+  .issue-title { font-size: 14px; font-weight: 700; }
+  .issue-body { font-size: 13px; color: #a0a0ba; line-height: 1.6; }
+  .issue-fix {
+    margin-top: 12px; padding: 10px 14px;
+    background: var(--surface2); border-radius: 8px;
+    font-family: 'DM Mono', monospace; font-size: 12px;
+    color: var(--accent2); border-left: 2px solid var(--accent2);
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    .chart-grid, .chart-grid.thirds { grid-template-columns: 1fr; }
+    .insights-grid { grid-template-columns: 1fr; }
+    .issues-grid { grid-template-columns: 1fr; }
+    main { padding: 20px 16px; }
+    nav { padding: 16px 16px 0; }
+    header { padding: 16px; }
+  }
+
+  .full-width { grid-column: 1 / -1; }
+
+  .section-header { margin-bottom: 24px; }
+  .section-header h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .section-header p { font-size: 14px; color: var(--muted); margin-top: 4px; }
+
+  /* CODE BLOCK */
+  .code-block {
+    background: #0d0d16; border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px;
+    font-family: 'DM Mono', monospace; font-size: 12px;
+    line-height: 1.7; color: #c0c0d8; overflow-x: auto;
+    margin-bottom: 16px;
+  }
+  .code-block .kw { color: #a98de0; }
+  .code-block .fn { color: var(--accent2); }
+  .code-block .str { color: var(--accent3); }
+  .code-block .cm { color: var(--muted); font-style: italic; }
+
+  .rank-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--surface2); display: inline-flex;
+    align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    font-family: 'DM Mono', monospace;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">E</div>
+    <div>
+      <div class="logo-text">EDIBS Analytics</div>
+      <div class="logo-sub">Digital Marketing Intelligence</div>
+    </div>
+  </div>
+  <div class="header-meta">
+    <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">Período: Ene–Mar 2024</div>
+    <div class="status-pill">Live Dashboard</div>
+  </div>
+</header>
+
+<nav>
+  <button class="tab active" onclick="switchTab(event,'overview')">Overview</button>
+  <button class="tab" onclick="switchTab(event,'clients')">Clientes</button>
+  <button class="tab" onclick="switchTab(event,'channels')">Canales</button>
+  <button class="tab" onclick="switchTab(event,'products')">Productos</button>
+  <button class="tab" onclick="switchTab(event,'model')">Modelo Datos</button>
+  <button class="tab" onclick="switchTab(event,'insights')">Insights</button>
+</nav>
+
+<main>
+
+<!-- ═══════════════ OVERVIEW ═══════════════ -->
+<div class="section active" id="overview">
+  <div class="section-header">
+    <h2>Performance Global</h2>
+    <p>Resumen ejecutivo · 5 clientes · 15 campañas · 4 canales · Q1 2024</p>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card" style="--accent-color: var(--green)">
+      <div class="kpi-label">Revenue Total</div>
+      <div class="kpi-value" style="color:var(--green)">$1.64M</div>
+      <div class="kpi-sub">Sobre inversión de $160K <span class="kpi-badge up">↑ activo</span></div>
+    </div>
+    <div class="kpi-card" style="--accent-color: var(--accent2)">
+      <div class="kpi-label">ROAS Global</div>
+      <div class="kpi-value" style="color:var(--accent2)">10.22x</div>
+      <div class="kpi-sub">$10.22 por cada $1 invertido</div>
+    </div>
+    <div class="kpi-card" style="--accent-color: var(--accent3)">
+      <div class="kpi-label">CPA Promedio</div>
+      <div class="kpi-value" style="color:var(--accent3)">$17.57</div>
+      <div class="kpi-sub">Costo por adquisición <span class="kpi-badge up">eficiente</span></div>
+    </div>
+    <div class="kpi-card" style="--accent-color: var(--accent4)">
+      <div class="kpi-label">Conversion Rate</div>
+      <div class="kpi-value" style="color:var(--accent4)">12.04%</div>
+      <div class="kpi-sub">Sobre 75,871 clicks</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Conversiones</div>
+      <div class="kpi-value">9,134</div>
+      <div class="kpi-sub">Total del período</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">CTR Global</div>
+      <div class="kpi-value">2.97%</div>
+      <div class="kpi-sub">2.55M impresiones</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Inversión Total</div>
+      <div class="kpi-value">$160K</div>
+      <div class="kpi-sub">Ads + gestión</div>
+    </div>
+    <div class="kpi-card" style="--accent-color: var(--accent)">
+      <div class="kpi-label">Campañas Activas</div>
+      <div class="kpi-value" style="color:var(--accent)">15</div>
+      <div class="kpi-sub">5 clientes · 4 canales</div>
+    </div>
+  </div>
+
+  <div class="chart-grid thirds">
+    <div class="chart-card">
+      <div class="chart-title">Revenue & Spend Mensual</div>
+      <div class="chart-subtitle">Evolución Q1 2024</div>
+      <div class="chart-wrap tall"><canvas id="monthlyChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">ROAS por Mes</div>
+      <div class="chart-subtitle">Eficiencia de inversión</div>
+      <div class="chart-wrap tall"><canvas id="roasMonthly"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-title">Distribución de Revenue por Canal</div>
+      <div class="chart-subtitle">Contribución total</div>
+      <div class="chart-wrap"><canvas id="channelRevDist"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Revenue vs Spend por Cliente</div>
+      <div class="chart-subtitle">Eficiencia por cuenta</div>
+      <div class="chart-wrap"><canvas id="clientScatter"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ CLIENTES ═══════════════ -->
+<div class="section" id="clients">
+  <div class="section-header">
+    <h2>Análisis por Cliente</h2>
+    <p>ROAS dinámico · CPA · LTV estimado · Retención proyectada</p>
+  </div>
+
+  <div class="kpi-grid" style="grid-template-columns: repeat(5, 1fr);">
+    <!-- filled by JS -->
+    <div id="clientKPIs"></div>
+  </div>
+
+  <div class="chart-grid" style="margin-bottom:24px">
+    <div class="chart-card">
+      <div class="chart-title">ROAS por Cliente</div>
+      <div class="chart-subtitle">Retorno sobre inversión publicitaria</div>
+      <div class="chart-wrap"><canvas id="clientROAS"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">CPA por Cliente</div>
+      <div class="chart-subtitle">Costo por adquisición · menor es mejor</div>
+      <div class="chart-wrap"><canvas id="clientCPA"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:24px">
+    <div class="chart-title">Tabla Comparativa de Clientes</div>
+    <div class="chart-subtitle">Métricas avanzadas · ROAS dinámico + LTV estimado</div>
+    <table class="data-table" id="clientTable"></table>
+  </div>
+</div>
+
+<!-- ═══════════════ CANALES ═══════════════ -->
+<div class="section" id="channels">
+  <div class="section-header">
+    <h2>Performance por Canal</h2>
+    <p>CPA ajustado por volumen · Eficiencia relativa de cada plataforma</p>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-title">ROAS por Canal</div>
+      <div class="chart-subtitle">Retorno sobre inversión</div>
+      <div class="chart-wrap"><canvas id="channelROAS"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">CPA vs CPA Ajustado por Canal</div>
+      <div class="chart-subtitle">CPA neto vs ajustado por escala de impresiones</div>
+      <div class="chart-wrap"><canvas id="channelCPA"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-title">CVR (Conversion Rate) por Canal</div>
+      <div class="chart-subtitle">% conversiones sobre clicks</div>
+      <div class="chart-wrap"><canvas id="channelCVR"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Budget Allocation vs Revenue</div>
+      <div class="chart-subtitle">Inversión vs retorno por canal</div>
+      <div class="chart-wrap"><canvas id="channelBubble"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">Tabla de Canales — Métricas Completas</div>
+    <div class="chart-subtitle">Con CPA ajustado por escala de audiencia</div>
+    <table class="data-table" id="channelTable"></table>
+  </div>
+</div>
+
+<!-- ═══════════════ PRODUCTOS ═══════════════ -->
+<div class="section" id="products">
+  <div class="section-header">
+    <h2>Análisis de Productos</h2>
+    <p>Revenue por SKU · Precio vs volumen · Eficiencia de catálogo</p>
+  </div>
+
+  <div class="chart-grid thirds">
+    <div class="chart-card">
+      <div class="chart-title">Revenue por Producto</div>
+      <div class="chart-subtitle">Top 10 SKUs</div>
+      <div class="chart-wrap tall"><canvas id="productRevChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Distribución Revenue</div>
+      <div class="chart-subtitle">Concentración de ventas</div>
+      <div class="chart-wrap tall"><canvas id="productDist"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">Tabla de Productos</div>
+    <div class="chart-subtitle">Precio · Unidades · Revenue · % del total</div>
+    <table class="data-table" id="productTable"></table>
+  </div>
+</div>
+
+<!-- ═══════════════ MODELO ═══════════════ -->
+<div class="section" id="model">
+  <div class="section-header">
+    <h2>Modelo de Datos — Diseño Técnico</h2>
+    <p>Esquema estrella optimizado · Decisiones de arquitectura · Propuestas de mejora</p>
+  </div>
+
+  <div class="model-diagram">
+    <div class="chart-title" style="margin-bottom:16px">Diagrama Entidad–Relación (Esquema Estrella)</div>
+    <svg class="schema-svg" viewBox="0 0 900 420" xmlns="http://www.w3.org/2000/svg" style="font-family:'Syne',sans-serif">
+      <!-- Connections -->
+      <!-- FACT to DIM_CAMPAIGN -->
+      <line x1="450" y1="188" x2="450" y2="120" stroke="#2a2a3d" stroke-width="2" stroke-dasharray="5,3"/>
+      <!-- FACT to DIM_DATE -->
+      <line x1="450" y1="232" x2="450" y2="310" stroke="#2a2a3d" stroke-width="2" stroke-dasharray="5,3"/>
+      <!-- FACT to DIM_PRODUCT -->
+      <line x1="380" y1="210" x2="230" y2="210" stroke="#2a2a3d" stroke-width="2" stroke-dasharray="5,3"/>
+      <!-- DIM_CAMPAIGN to DIM_CLIENT -->
+      <line x1="320" y1="60" x2="200" y2="60" stroke="#3ecfcf" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5"/>
+      <!-- DIM_CAMPAIGN to DIM_CHANNEL -->
+      <line x1="580" y1="60" x2="700" y2="60" stroke="#3ecfcf" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5"/>
+
+      <!-- FACT TABLE – center -->
+      <rect x="380" y="150" width="140" height="100" rx="12" fill="#1a1a26" stroke="#7c5cbf" stroke-width="2"/>
+      <rect x="380" y="150" width="140" height="28" rx="12" fill="#7c5cbf" opacity="0.8"/>
+      <rect x="380" y="168" width="140" height="10" rx="0" fill="#7c5cbf" opacity="0.8"/>
+      <text x="450" y="169" fill="white" font-size="11" font-weight="700" text-anchor="middle">FACT_AD_PERFORMANCE</text>
+      <text x="390" y="192" fill="#a0a0ba" font-size="9.5">🔑 campaign_id (FK)</text>
+      <text x="390" y="206" fill="#a0a0ba" font-size="9.5">🔑 date_id (FK)</text>
+      <text x="390" y="220" fill="#a0a0ba" font-size="9.5">🔑 product_id (FK)</text>
+      <text x="390" y="234" fill="#6b6b8a" font-size="8.5">impressions · clicks</text>
+      <text x="390" y="244" fill="#6b6b8a" font-size="8.5">conversions · spend · revenue</text>
+
+      <!-- DIM_CAMPAIGN – top -->
+      <rect x="350" y="30" width="200" height="90" rx="12" fill="#12121a" stroke="#3ecfcf" stroke-width="1.5"/>
+      <rect x="350" y="30" width="200" height="24" rx="12" fill="#3ecfcf" opacity="0.25"/>
+      <rect x="350" y="42" width="200" height="12" rx="0" fill="#3ecfcf" opacity="0.25"/>
+      <text x="450" y="46" fill="#3ecfcf" font-size="10" font-weight="700" text-anchor="middle">DIM_CAMPAIGN</text>
+      <text x="360" y="65" fill="#a0a0ba" font-size="9">🔑 campaign_id (PK)</text>
+      <text x="360" y="78" fill="#6b6b8a" font-size="8.5">client_id (FK) · channel_id (FK)</text>
+      <text x="360" y="90" fill="#6b6b8a" font-size="8.5">budget_usd · start_date · end_date</text>
+      <text x="360" y="102" fill="#6b6b8a" font-size="8.5">campaign_name · status</text>
+      <text x="360" y="114" fill="#3ecfcf" font-size="8" opacity="0.7">1→N con FACT_AD_PERFORMANCE</text>
+
+      <!-- DIM_CLIENT – top left -->
+      <rect x="50" y="22" width="150" height="90" rx="12" fill="#12121a" stroke="#f0a500" stroke-width="1.5"/>
+      <rect x="50" y="22" width="150" height="24" rx="12" fill="#f0a500" opacity="0.2"/>
+      <rect x="50" y="34" width="150" height="12" rx="0" fill="#f0a500" opacity="0.2"/>
+      <text x="125" y="38" fill="#f0a500" font-size="10" font-weight="700" text-anchor="middle">DIM_CLIENT</text>
+      <text x="60" y="56" fill="#a0a0ba" font-size="9">🔑 client_id (PK)</text>
+      <text x="60" y="69" fill="#6b6b8a" font-size="8.5">client_name · industry</text>
+      <text x="60" y="81" fill="#6b6b8a" font-size="8.5">retainer · country</text>
+      <text x="60" y="93" fill="#6b6b8a" font-size="8.5">segment · start_date</text>
+      <text x="60" y="105" fill="#f0a500" font-size="8" opacity="0.7">1→N con DIM_CAMPAIGN</text>
+
+      <!-- DIM_CHANNEL – top right -->
+      <rect x="700" y="22" width="155" height="90" rx="12" fill="#12121a" stroke="#e05c7a" stroke-width="1.5"/>
+      <rect x="700" y="22" width="155" height="24" rx="12" fill="#e05c7a" opacity="0.2"/>
+      <rect x="700" y="34" width="155" height="12" rx="0" fill="#e05c7a" opacity="0.2"/>
+      <text x="778" y="38" fill="#e05c7a" font-size="10" font-weight="700" text-anchor="middle">DIM_CHANNEL</text>
+      <text x="710" y="56" fill="#a0a0ba" font-size="9">🔑 channel_id (PK)</text>
+      <text x="710" y="69" fill="#6b6b8a" font-size="8.5">channel_name · platform</text>
+      <text x="710" y="81" fill="#6b6b8a" font-size="8.5">type (paid/owned/earned)</text>
+      <text x="710" y="93" fill="#6b6b8a" font-size="8.5">api_source · is_active</text>
+      <text x="710" y="105" fill="#e05c7a" font-size="8" opacity="0.7">1→N via DIM_CAMPAIGN</text>
+
+      <!-- DIM_PRODUCT – left center -->
+      <rect x="40" y="158" width="155" height="100" rx="12" fill="#12121a" stroke="#2fcf7a" stroke-width="1.5"/>
+      <rect x="40" y="158" width="155" height="24" rx="12" fill="#2fcf7a" opacity="0.2"/>
+      <rect x="40" y="170" width="155" height="12" rx="0" fill="#2fcf7a" opacity="0.2"/>
+      <text x="118" y="174" fill="#2fcf7a" font-size="10" font-weight="700" text-anchor="middle">DIM_PRODUCT</text>
+      <text x="52" y="193" fill="#a0a0ba" font-size="9">🔑 product_id (PK)</text>
+      <text x="52" y="207" fill="#6b6b8a" font-size="8.5">product_name · category</text>
+      <text x="52" y="220" fill="#6b6b8a" font-size="8.5">price_usd · sku</text>
+      <text x="52" y="233" fill="#6b6b8a" font-size="8.5">margin · is_active</text>
+      <text x="52" y="246" fill="#2fcf7a" font-size="8" opacity="0.7">1→N con FACT_SALES</text>
+
+      <!-- DIM_DATE – bottom center -->
+      <rect x="350" y="300" width="200" height="95" rx="12" fill="#12121a" stroke="#a98de0" stroke-width="1.5"/>
+      <rect x="350" y="300" width="200" height="24" rx="12" fill="#a98de0" opacity="0.25"/>
+      <rect x="350" y="312" width="200" height="12" rx="0" fill="#a98de0" opacity="0.25"/>
+      <text x="450" y="316" fill="#a98de0" font-size="10" font-weight="700" text-anchor="middle">DIM_DATE</text>
+      <text x="360" y="335" fill="#a0a0ba" font-size="9">🔑 date_id (PK)</text>
+      <text x="360" y="348" fill="#6b6b8a" font-size="8.5">full_date · year · quarter</text>
+      <text x="360" y="361" fill="#6b6b8a" font-size="8.5">month · week · day_of_week</text>
+      <text x="360" y="374" fill="#6b6b8a" font-size="8.5">is_weekend · is_holiday</text>
+      <text x="360" y="387" fill="#a98de0" font-size="8" opacity="0.7">1→N con ambas tablas de hechos</text>
+
+      <!-- FACT_SALES – right -->
+      <rect x="685" y="158" width="165" height="100" rx="12" fill="#1a1a26" stroke="#7c5cbf" stroke-width="2" stroke-dasharray="6,3"/>
+      <rect x="685" y="158" width="165" height="24" rx="12" fill="#7c5cbf" opacity="0.5"/>
+      <rect x="685" y="170" width="165" height="12" fill="#7c5cbf" opacity="0.5"/>
+      <text x="768" y="174" fill="white" font-size="10" font-weight="700" text-anchor="middle">FACT_SALES</text>
+      <text x="695" y="193" fill="#a0a0ba" font-size="9">🔑 campaign_id (FK)</text>
+      <text x="695" y="207" fill="#a0a0ba" font-size="9">🔑 date_id (FK)</text>
+      <text x="695" y="220" fill="#a0a0ba" font-size="9">🔑 product_id (FK)</text>
+      <text x="695" y="234" fill="#6b6b8a" font-size="8.5">revenue_usd · units_sold</text>
+      <text x="695" y="247" fill="#6b6b8a" font-size="8.5">client_id (desnorm.)</text>
+
+      <!-- Connect FACT to FACT_SALES -->
+      <line x1="520" y1="200" x2="685" y2="208" stroke="#7c5cbf" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.5"/>
+
+      <!-- Cardinality labels -->
+      <text x="445" y="143" fill="#3ecfcf" font-size="9" opacity="0.7">1:N</text>
+      <text x="445" y="293" fill="#a98de0" font-size="9" opacity="0.7">1:N</text>
+      <text x="312" y="205" fill="#2fcf7a" font-size="9" opacity="0.7">1:N</text>
+    </svg>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px">
+      ⬟ Tablas de Hechos &nbsp;|&nbsp; ▭ Dimensiones &nbsp;|&nbsp; Cardinalidad: todas las relaciones son 1→N
+    </div>
+  </div>
+
+  <!-- Technical decisions -->
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-title">Decisiones Técnicas — Esquema Estrella</div>
+      <div class="chart-subtitle">Justificación de diseño</div>
+      <table class="data-table">
+        <thead><tr>
+          <th>Decisión</th><th>Justificación</th><th>Alternativa</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="badge badge-purple">Esquema Estrella</span></td>
+            <td style="font-size:12px;color:#a0a0ba">Mínimo de JOINs para consultas OLAP, ideal para BI tools</td>
+            <td style="font-size:12px;color:#6b6b8a">Snowflake (mayor normalización, más JOINs)</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-cyan">2 Tablas Hechos</span></td>
+            <td style="font-size:12px;color:#a0a0ba">Ads y Sales tienen granularidades distintas (diaria vs transaccional)</td>
+            <td style="font-size:12px;color:#6b6b8a">Una sola tabla con NULLs masivos</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-gold">DIM_DATE separada</span></td>
+            <td style="font-size:12px;color:#a0a0ba">Permite análisis temporal avanzado sin calcular en runtime</td>
+            <td style="font-size:12px;color:#6b6b8a">Date inline (pérdida de flexibilidad)</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-green">DIM_CHANNEL nueva</span></td>
+            <td style="font-size:12px;color:#a0a0ba">El canal es string en origen → normalizar evita errores de tipeo</td>
+            <td style="font-size:12px;color:#6b6b8a">Enum en tabla campaigns</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-pink">Surrogate Keys</span></td>
+            <td style="font-size:12px;color:#a0a0ba">IDs enteros para JOINs más rápidos y estabilidad frente a cambios</td>
+            <td style="font-size:12px;color:#6b6b8a">Natural keys (frágiles ante cambios de fuente)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Código Python — Métricas Core</div>
+      <div class="chart-subtitle">Cálculo de ROAS, CPA, CVR</div>
+      <div class="code-block">
+<span class="cm"># Fact table unificada</span>
+fact = ads.<span class="fn">merge</span>(campaigns, <span class="str">on=</span><span class="str">'campaign_id'</span>)
+fact = fact.<span class="fn">merge</span>(sales_agg, <span class="str">on=</span>[<span class="str">'campaign_id'</span>,<span class="str">'date'</span>])
+
+<span class="cm"># Métricas base</span>
+fact[<span class="str">'ROAS'</span>] = fact[<span class="str">'revenue_usd'</span>] / fact[<span class="str">'ad_spend_usd'</span>]
+fact[<span class="str">'CPA'</span>] = fact[<span class="str">'ad_spend_usd'</span>] / fact[<span class="str">'conversions'</span>]
+fact[<span class="str">'CVR'</span>] = fact[<span class="str">'conversions'</span>] / fact[<span class="str">'clicks'</span>]
+fact[<span class="str">'CTR'</span>] = fact[<span class="str">'clicks'</span>] / fact[<span class="str">'impressions'</span>]
+
+<span class="cm"># ROAS dinámico por cliente</span>
+<span class="kw">def</span> <span class="fn">dynamic_roas</span>(df, group_by):
+    g = df.<span class="fn">groupby</span>(group_by).<span class="fn">agg</span>(
+        revenue=(<span class="str">'revenue_usd'</span>,<span class="str">'sum'</span>),
+        spend=(<span class="str">'ad_spend_usd'</span>,<span class="str">'sum'</span>))
+    g[<span class="str">'ROAS'</span>] = g[<span class="str">'revenue'</span>] / g[<span class="str">'spend'</span>]
+    <span class="kw">return</span> g
+
+<span class="cm"># CPA ajustado por escala de canal</span>
+avg_imp = channel[<span class="str">'impressions'</span>].<span class="fn">mean</span>()
+channel[<span class="str">'CPA_adj'</span>] = channel[<span class="str">'CPA'</span>] * (
+    channel[<span class="str">'impressions'</span>] / avg_imp)
+
+<span class="cm"># LTV estimado (3.5 compras promedio)</span>
+client[<span class="str">'LTV'</span>] = client[<span class="str">'avg_order_value'</span>] * 3.5
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ INSIGHTS ═══════════════ -->
+<div class="section" id="insights">
+  <div class="section-header">
+    <h2>Insights Estratégicos</h2>
+    <p>Hallazgos clave · Problemas detectados · Recomendaciones ejecutivas</p>
+  </div>
+
+  <div class="insights-grid">
+    <div class="insight-card" style="--ic-color: #2fcf7a">
+      <div class="insight-tag">🏆 Top Performer</div>
+      <div class="insight-title">GreenMarket lidera en ROAS</div>
+      <div class="insight-body">Con 12.68x de ROAS y el CPA más bajo ($14.23), GreenMarket es el cliente más eficiente. Su combinación de LinkedIn + Facebook genera conversiones a menor costo que el promedio de mercado.</div>
+      <div class="insight-metric">12.68x ROAS</div>
+    </div>
+
+    <div class="insight-card" style="--ic-color: #3ecfcf">
+      <div class="insight-tag">💡 Hallazgo Canal</div>
+      <div class="insight-title">Facebook: mejor CVR del portfolio</div>
+      <div class="insight-body">Facebook registra el CVR más alto (12.92%) y el CPA neto más bajo ($16.79). A pesar de no ser el canal con más inversión, ofrece la mejor relación calidad-precio del embudo de conversión.</div>
+      <div class="insight-metric">12.92% CVR</div>
+    </div>
+
+    <div class="insight-card" style="--ic-color: #f0a500">
+      <div class="insight-tag">⚡ Oportunidad</div>
+      <div class="insight-title">Campaign 14: ROAS récord 20x</div>
+      <div class="insight-body">La campaña 14 (GreenMarket, LinkedIn) alcanzó 20.13x de ROAS con solo $5,683 invertidos. Es la campaña más eficiente del portfolio: escalar presupuesto aquí tiene altísimo potencial de ROI.</div>
+      <div class="insight-metric">20.13x ROAS</div>
+    </div>
+
+    <div class="insight-card" style="--ic-color: #e05c7a">
+      <div class="insight-tag">⚠️ Alerta Presupuesto</div>
+      <div class="insight-title">Todas las campañas sobrepasan su budget</div>
+      <div class="insight-body">100% de las campañas muestran utilización de budget mayor al 100% (rango 101.8%–108.2%). Esto indica ausencia de alertas de pacing o límites de gasto automáticos. Riesgo financiero real.</div>
+      <div class="insight-metric">+4.2% promedio overspend</div>
+    </div>
+
+    <div class="insight-card" style="--ic-color: #7c5cbf">
+      <div class="insight-tag">📉 Punto de Atención</div>
+      <div class="insight-title">Google Ads: menor ROAS y volumen</div>
+      <div class="insight-body">Con ROAS de 9.42x y solo el 13.2% del revenue total, Google Ads underperforma respecto al promedio. Sin embargo, su CVR de 11.66% es sólido: posiblemente necesita mayor inversión para escalar.</div>
+      <div class="insight-metric">9.42x vs 10.22x prom.</div>
+    </div>
+
+    <div class="insight-card" style="--ic-color: #a98de0">
+      <div class="insight-tag">📊 Estructura BBDD</div>
+      <div class="insight-title">Revenue no vinculado directamente a cliente</div>
+      <div class="insight-body">La tabla Sales solo tiene campaign_id y product_id. Para calcular revenue por cliente se requiere un JOIN indirecto vía Campaigns. Esto introduce riesgo de error en análisis ad-hoc sin documentación adecuada.</div>
+      <div class="insight-metric">Join de 3 tablas</div>
+    </div>
+  </div>
+
+  <!-- Structural Issues -->
+  <div style="margin-bottom:20px">
+    <div class="chart-title" style="margin-bottom:16px;font-size:16px">🔧 Problemas Detectados en la BBDD Original + Propuestas de Mejora</div>
+    <div class="issues-grid">
+      <div class="issue-card">
+        <div class="issue-header">
+          <div class="issue-icon" style="background:rgba(224,92,122,0.15)">🔴</div>
+          <div class="issue-title">Sin tabla de hechos unificada</div>
+        </div>
+        <div class="issue-body">Sales y Ads son tablas separadas sin una clave de unión directa. Los KPIs como ROAS requieren JOINs complejos y propensos a errores cuando los equipos hacen consultas ad-hoc.</div>
+        <div class="issue-fix">→ Crear FACT_AD_PERFORMANCE con revenue, spend, conversions en la misma granularidad (campaign × date)</div>
+      </div>
+
+      <div class="issue-card">
+        <div class="issue-header">
+          <div class="issue-icon" style="background:rgba(240,165,0,0.15)">🟡</div>
+          <div class="issue-title">Canal como string sin normalizar</div>
+        </div>
+        <div class="issue-body">El canal está almacenado como texto libre en Campaigns ("LinkedIn", "Facebook"...). Sin FK a una tabla de dimensión, un error de tipeo como "linkedin" rompe los agrupamientos silenciosamente.</div>
+        <div class="issue-fix">→ Crear DIM_CHANNEL con channel_id como PK y FK en Campaigns. Añadir constraint de integridad.</div>
+      </div>
+
+      <div class="issue-card">
+        <div class="issue-header">
+          <div class="issue-icon" style="background:rgba(240,165,0,0.15)">🟡</div>
+          <div class="issue-title">Sin tabla de fechas / calendario</div>
+        </div>
+        <div class="issue-body">Las fechas están en formato string en múltiples tablas. Esto dificulta análisis temporales (semana vs fin de semana, festivos, comparativas YoY) sin lógica adicional en cada query.</div>
+        <div class="issue-fix">→ Crear DIM_DATE con year, quarter, month, week, is_weekend, is_holiday. Pre-calcular en ETL.</div>
+      </div>
+
+      <div class="issue-card">
+        <div class="issue-header">
+          <div class="issue-icon" style="background:rgba(46,207,122,0.15)">🟢</div>
+          <div class="issue-title">Granularidad inconsistente en Sales</div>
+        </div>
+        <div class="issue-body">Sales tiene filas duplicadas de (campaign_id, date, product_id): múltiples registros por combinación sin un sale_id primario. Esto genera ambigüedad en agregaciones COUNT vs SUM.</div>
+        <div class="issue-fix">→ Añadir sale_id como surrogate key. Documentar si cada fila es 1 transacción o un agregado diario.</div>
+      </div>
+
+      <div class="issue-card">
+        <div class="issue-header">
+          <div class="issue-icon" style="background:rgba(124,92,191,0.15)">🟣</div>
+          <div class="issue-title">Sin campos de auditoría / metadata</div>
+        </div>
+        <div class="issue-body">Ninguna tabla tiene campos created_at, updated_at, data_source o ingestion_batch. En entornos multi-fuente (CRM + Ads APIs + Email), la trazabilidad de datos es crítica para debugging.</div>
+        <div class="issue-fix">→ Añadir created_at, updated_at (TIMESTAMP) y source_system (VARCHAR) a todas las tablas.</div>
+      </div>
+
+      <div class="issue-card">
+        <div class="issue-header">
+          <div class="issue-icon" style="background:rgba(62,207,207,0.15)">🔵</div>
+          <div class="issue-title">Retainer mensual no aprovechado</div>
+        </div>
+        <div class="issue-body">El campo monthly_retainer_usd existe en Clients pero no se usa en ningún cálculo de rentabilidad. El verdadero ROI para la agencia incluye el retainer como ingreso, no solo el ad spend del cliente.</div>
+        <div class="issue-fix">→ Crear vista AGENCY_PROFITABILITY: (retainer + margin_on_spend) - operational_cost por cliente.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recommendations -->
+  <div class="chart-card">
+    <div class="chart-title">Plan de Mejora Estructural — Roadmap</div>
+    <div class="chart-subtitle">Priorización por impacto y esfuerzo</div>
+    <table class="data-table">
+      <thead><tr>
+        <th>#</th><th>Mejora</th><th>Impacto</th><th>Esfuerzo</th><th>Prioridad</th><th>Descripción</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="rank-num">1</span></td>
+          <td><strong>Tabla Hechos Unificada</strong></td>
+          <td><span class="badge badge-green">Alto</span></td>
+          <td><span class="badge badge-gold">Medio</span></td>
+          <td><span class="badge badge-green">Urgente</span></td>
+          <td style="font-size:12px;color:#a0a0ba">Unificar Ads + Sales en FACT_PERFORMANCE para calcular ROAS en 1 query</td>
+        </tr>
+        <tr>
+          <td><span class="rank-num">2</span></td>
+          <td><strong>DIM_DATE Pre-calculada</strong></td>
+          <td><span class="badge badge-green">Alto</span></td>
+          <td><span class="badge badge-cyan">Bajo</span></td>
+          <td><span class="badge badge-green">Urgente</span></td>
+          <td style="font-size:12px;color:#a0a0ba">Tabla de calendario con 730 días pre-cargados. Habilita análisis temporales avanzados</td>
+        </tr>
+        <tr>
+          <td><span class="rank-num">3</span></td>
+          <td><strong>Alertas de Pacing</strong></td>
+          <td><span class="badge badge-green">Alto</span></td>
+          <td><span class="badge badge-cyan">Bajo</span></td>
+          <td><span class="badge badge-gold">Esta semana</span></td>
+          <td style="font-size:12px;color:#a0a0ba">Todas las campañas overspend. Implementar lógica de alertas al 90% del budget</td>
+        </tr>
+        <tr>
+          <td><span class="rank-num">4</span></td>
+          <td><strong>Normalizar DIM_CHANNEL</strong></td>
+          <td><span class="badge badge-gold">Medio</span></td>
+          <td><span class="badge badge-cyan">Bajo</span></td>
+          <td><span class="badge badge-gold">Q2</span></td>
+          <td style="font-size:12px;color:#a0a0ba">Canal como FK evita typos y facilita integración de nuevas plataformas</td>
+        </tr>
+        <tr>
+          <td><span class="rank-num">5</span></td>
+          <td><strong>Vista Agency Profitability</strong></td>
+          <td><span class="badge badge-green">Alto</span></td>
+          <td><span class="badge badge-gold">Medio</span></td>
+          <td><span class="badge badge-gold">Q2</span></td>
+          <td style="font-size:12px;color:#a0a0ba">Incorporar retainer + costos operativos para calcular margen real de la agencia</td>
+        </tr>
+        <tr>
+          <td><span class="rank-num">6</span></td>
+          <td><strong>Auditoría + Trazabilidad</strong></td>
+          <td><span class="badge badge-gold">Medio</span></td>
+          <td><span class="badge badge-cyan">Bajo</span></td>
+          <td><span class="badge badge-purple">Q3</span></td>
+          <td style="font-size:12px;color:#a0a0ba">Campos created_at, source_system en todas las tablas para debugging de datos</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ═══════════ DATA ═══════════
+const DATA = {"client_metrics":[{"client_id":1,"client_name":"Edibs School","industry":"Education","total_revenue":285969,"total_spend":31403.06,"total_conversions":1591,"total_clicks":13035,"total_impressions":488426,"monthly_retainer":5000,"ROAS":9.11,"CPA":19.74,"CVR":12.21,"CTR":2.67,"avg_order_value":179.74,"LTV_estimated":629.09},{"client_id":2,"client_name":"TechNova","industry":"Technology","total_revenue":375539,"total_spend":38764.49,"total_conversions":2116,"total_clicks":17028,"total_impressions":555255,"monthly_retainer":7000,"ROAS":9.69,"CPA":18.32,"CVR":12.43,"CTR":3.07,"avg_order_value":177.48,"LTV_estimated":621.18},{"client_id":3,"client_name":"FitLife","industry":"Fitness","total_revenue":334387,"total_spend":31902.28,"total_conversions":1854,"total_clicks":15315,"total_impressions":505363,"monthly_retainer":4000,"ROAS":10.48,"CPA":17.21,"CVR":12.11,"CTR":3.03,"avg_order_value":180.36,"LTV_estimated":631.26},{"client_id":4,"client_name":"FinEdge","industry":"Finance","total_revenue":282257,"total_spend":29926.04,"total_conversions":1568,"total_clicks":14314,"total_impressions":444509,"monthly_retainer":6500,"ROAS":9.43,"CPA":19.09,"CVR":10.95,"CTR":3.22,"avg_order_value":180.01,"LTV_estimated":630.04},{"client_id":5,"client_name":"GreenMarket","industry":"Ecommerce","total_revenue":361811,"total_spend":28529.71,"total_conversions":2005,"total_clicks":16179,"total_impressions":560606,"monthly_retainer":5500,"ROAS":12.68,"CPA":14.23,"CVR":12.39,"CTR":2.89,"avg_order_value":180.45,"LTV_estimated":631.57}],"channel_metrics":[{"channel":"Email","total_revenue":473758,"total_spend":46008.87,"total_conversions":2648,"total_clicks":22114,"total_impressions":716557,"ROAS":10.3,"CPA":17.37,"CPA_adj":19.49,"CVR":11.97},{"channel":"Facebook","total_revenue":463089,"total_spend":43431.02,"total_conversions":2586,"total_clicks":20010,"total_impressions":665468,"ROAS":10.66,"CPA":16.79,"CPA_adj":17.5,"CVR":12.92},{"channel":"Google Ads","total_revenue":200317,"total_spend":21255.56,"total_conversions":1107,"total_clicks":9496,"total_impressions":316967,"ROAS":9.42,"CPA":19.2,"CPA_adj":9.53,"CVR":11.66},{"channel":"LinkedIn","total_revenue":502799,"total_spend":49830.13,"total_conversions":2793,"total_clicks":24251,"total_impressions":855167,"ROAS":10.09,"CPA":17.84,"CPA_adj":23.89,"CVR":11.52}],"monthly":[{"month":"2024-01","revenue":593728,"spend":58652.47,"conversions":3289,"impressions":886710,"clicks":26997,"ROAS":10.12,"CPA":17.83},{"month":"2024-02","revenue":797091,"spend":76157.57,"conversions":4449,"impressions":1281129,"clicks":37257,"ROAS":10.47,"CPA":17.12},{"month":"2024-03","revenue":249144,"spend":25715.54,"conversions":1396,"impressions":386320,"clicks":11617,"ROAS":9.69,"CPA":18.42}],"top_products":[{"product_id":7,"product_name":"Product_7","price_usd":268,"total_revenue":250848,"total_units":936},{"product_id":2,"product_name":"Product_2","price_usd":259,"total_revenue":238280,"total_units":920},{"product_id":10,"product_name":"Product_10","price_usd":201,"total_revenue":181503,"total_units":903},{"product_id":5,"product_name":"Product_5","price_usd":186,"total_revenue":175584,"total_units":944},{"product_id":9,"product_name":"Product_9","price_usd":182,"total_revenue":161070,"total_units":885},{"product_id":3,"product_name":"Product_3","price_usd":172,"total_revenue":155660,"total_units":905},{"product_id":1,"product_name":"Product_1","price_usd":182,"total_revenue":154700,"total_units":850},{"product_id":6,"product_name":"Product_6","price_usd":151,"total_revenue":144356,"total_units":956},{"product_id":8,"product_name":"Product_8","price_usd":100,"total_revenue":91200,"total_units":912},{"product_id":4,"product_name":"Product_4","price_usd":94,"total_revenue":86762,"total_units":923}],"camp_perf":[{"campaign_id":1,"total_revenue":99931,"total_spend":11679.79,"total_conversions":560,"channel":"LinkedIn","budget_usd":11398,"client_id":1,"client_name":"Edibs School","ROAS":8.56,"budget_utilization":102.5},{"campaign_id":2,"total_revenue":103626,"total_spend":8729.58,"total_conversions":571,"channel":"Facebook","budget_usd":8478,"client_id":1,"client_name":"Edibs School","ROAS":11.87,"budget_utilization":103.0},{"campaign_id":3,"total_revenue":82412,"total_spend":10993.69,"total_conversions":460,"channel":"LinkedIn","budget_usd":10492,"client_id":1,"client_name":"Edibs School","ROAS":7.5,"budget_utilization":104.8},{"campaign_id":4,"total_revenue":137761,"total_spend":14779.97,"total_conversions":775,"channel":"Facebook","budget_usd":14098,"client_id":2,"client_name":"TechNova","ROAS":9.32,"budget_utilization":104.8},{"campaign_id":5,"total_revenue":125449,"total_spend":13849.71,"total_conversions":715,"channel":"Email","budget_usd":13407,"client_id":2,"client_name":"TechNova","ROAS":9.06,"budget_utilization":103.3},{"campaign_id":6,"total_revenue":112329,"total_spend":10134.81,"total_conversions":626,"channel":"Email","budget_usd":9924,"client_id":2,"client_name":"TechNova","ROAS":11.08,"budget_utilization":102.1},{"campaign_id":7,"total_revenue":127374,"total_spend":7110.03,"total_conversions":700,"channel":"Email","budget_usd":6570,"client_id":3,"client_name":"FitLife","ROAS":17.91,"budget_utilization":108.2},{"campaign_id":8,"total_revenue":98407,"total_spend":9877.93,"total_conversions":547,"channel":"Google Ads","budget_usd":9581,"client_id":3,"client_name":"FitLife","ROAS":9.96,"budget_utilization":103.1},{"campaign_id":9,"total_revenue":108606,"total_spend":14914.32,"total_conversions":607,"channel":"Email","budget_usd":14265,"client_id":3,"client_name":"FitLife","ROAS":7.28,"budget_utilization":104.6},{"campaign_id":10,"total_revenue":99830,"total_spend":10549.21,"total_conversions":555,"channel":"LinkedIn","budget_usd":10285,"client_id":4,"client_name":"FinEdge","ROAS":9.46,"budget_utilization":102.6},{"campaign_id":11,"total_revenue":101910,"total_spend":11377.63,"total_conversions":560,"channel":"Google Ads","budget_usd":11116,"client_id":4,"client_name":"FinEdge","ROAS":8.96,"budget_utilization":102.4},{"campaign_id":12,"total_revenue":80517,"total_spend":7999.2,"total_conversions":453,"channel":"Facebook","budget_usd":7857,"client_id":4,"client_name":"FinEdge","ROAS":10.07,"budget_utilization":101.8},{"campaign_id":13,"total_revenue":141185,"total_spend":11922.27,"total_conversions":787,"channel":"Facebook","budget_usd":11658,"client_id":5,"client_name":"GreenMarket","ROAS":11.84,"budget_utilization":102.3},{"campaign_id":14,"total_revenue":114423,"total_spend":5683.06,"total_conversions":634,"channel":"LinkedIn","budget_usd":5430,"client_id":5,"client_name":"GreenMarket","ROAS":20.13,"budget_utilization":104.7},{"campaign_id":15,"total_revenue":106203,"total_spend":10924.38,"total_conversions":584,"channel":"LinkedIn","budget_usd":10725,"client_id":5,"client_name":"GreenMarket","ROAS":9.72,"budget_utilization":101.9}],"totals":{"total_revenue":1639963.0,"total_spend":160525.58,"total_conversions":9134,"total_impressions":2554159,"total_clicks":75871,"overall_roas":10.22,"overall_cpa":17.57,"overall_cvr":12.04,"overall_ctr":2.97,"num_clients":5,"num_campaigns":15,"num_channels":4}};
+
+const COLORS = ['#7c5cbf','#3ecfcf','#f0a500','#e05c7a','#2fcf7a','#a98de0','#5bc8f5','#ff8c69'];
+const CHANNEL_COLORS = {'Email':'#f0a500','Facebook':'#3ecfcf','Google Ads':'#e05c7a','LinkedIn':'#7c5cbf'};
+
+// Default Chart.js options
+Chart.defaults.color = '#6b6b8a';
+Chart.defaults.borderColor = '#2a2a3d';
+Chart.defaults.font.family = "'DM Mono', monospace";
+Chart.defaults.font.size = 11;
+
+function makeChart(id, config) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  return new Chart(ctx, config);
+}
+
+function fmtM(v) { return v >= 1e6 ? `$${(v/1e6).toFixed(2)}M` : `$${(v/1e3).toFixed(0)}K`; }
+function fmtN(v) { return v.toLocaleString(); }
+
+// ═══════════ OVERVIEW CHARTS ═══════════
+makeChart('monthlyChart', {
+  type: 'bar',
+  data: {
+    labels: DATA.monthly.map(m => m.month),
+    datasets: [
+      { label: 'Revenue', data: DATA.monthly.map(m => m.revenue), backgroundColor: 'rgba(46,207,122,0.7)', borderRadius: 6, order: 2 },
+      { label: 'Ad Spend', data: DATA.monthly.map(m => m.spend), backgroundColor: 'rgba(124,92,191,0.7)', borderRadius: 6, order: 2 }
+    ]
+  },
+  options: { responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#a0a0ba' } } },
+    scales: {
+      x: { grid: { color: '#1a1a26' }, ticks: { color: '#6b6b8a' } },
+      y: { grid: { color: '#1a1a26' }, ticks: { color: '#6b6b8a', callback: v => fmtM(v) } }
+    }
+  }
+});
+
+makeChart('roasMonthly', {
+  type: 'line',
+  data: {
+    labels: DATA.monthly.map(m => m.month),
+    datasets: [{
+      label: 'ROAS', data: DATA.monthly.map(m => m.ROAS),
+      borderColor: '#3ecfcf', backgroundColor: 'rgba(62,207,207,0.1)',
+      borderWidth: 2.5, pointBackgroundColor: '#3ecfcf', pointRadius: 6, fill: true, tension: 0.3
+    }]
+  },
+  options: { responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: '#1a1a26' }, ticks: { color: '#6b6b8a' } },
+      y: { grid: { color: '#1a1a26' }, ticks: { color: '#6b6b8a', callback: v => v+'x' }, min: 8 }
+    }
+  }
+});
+
+makeChart('channelRevDist', {
+  type: 'doughnut',
+  data: {
+    labels: DATA.channel_metrics.map(c => c.channel),
+    datasets: [{
+      data: DATA.channel_metrics.map(c => c.total_revenue),
+      backgroundColor: DATA.channel_metrics.map(c => CHANNEL_COLORS[c.channel]),
+      borderColor: '#0a0a0f', borderWidth: 3, hoverOffset: 8
+    }]
+  },
+  options: { responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'right', labels: { color: '#a0a0ba', padding: 14 } },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmtM(ctx.raw)}` } }
+    }
+  }
+});
+
+makeChart('clientScatter', {
+  type: 'bar',
+  data: {
+    labels: DATA.client_metrics.map(c => c.client_name),
+    datasets: [
+      { label: 'Revenue', data: DATA.client_metrics.map(c => c.total_revenue), backgroundColor: COLORS.map(c => c+'cc'), borderRadius: 6 },
+      { label: 'Spend', data: DATA.client_metrics.map(c => c.total_spend), backgroundColor: COLORS.map(c => c+'44'), borderRadius: 6 }
+    ]
+  },
+  options: { responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#a0a0ba' } } },
+    scales: {
+      x: { grid: { color: '#1a1a26' }, ticks: { color: '#6b6b8a' } },
+      y: { grid: { color: '#1a1a26' }, ticks: { color: '#6b6b8a', callback: v => fmtM(v) } }
+    }
+  }
+});
+
+// ═══════════ CLIENT CHARTS ═══════════
+// KPI cards for clients
+const kpiDiv = document.getElementById('clientKPIs');
+if (kpiDiv) {
+  kpiDiv.style.display = 'contents';
+  DATA.client_metrics.forEach((c, i) => {
+    const div = document.createElement('div');
+    div.className = 'kpi-card';
+    div.style.setProperty('--accent-color', COLORS[i]);
+    div.innerHTML = `<div class="kpi-label">${c.client_name}</div>
+      <div class="kpi-value" style="color:${COLORS[i]};font-size:22px">${c.ROAS}x</div>
+      <div class="kpi-sub">ROAS · CPA $${c.CPA} · CVR ${c.CVR}%</div>`;
+    kpiDiv.parentNode.insertBefore(div, kpiDiv);
+  });
+  kpiDiv.remove();
+}
+
+makeChart('clientROAS', {
+  type: 'bar',
+  data: {
+    labels: DATA.client_metrics.map(c => c.client_name),
+    datasets: [{
+      label: 'ROAS', data: DATA.client_metrics.map(c => c.ROAS),
+      backgroundColor: COLORS, borderRadius: 8
+    }]
+  },
+  options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: '#1a1a26' }, ticks: { color: '#6b6b8a', callback: v => v+'x' } },
+      y: { grid: { color: '#1a1a26' }, ticks: { color: '#a0a0ba' } }
+    }
+  }
+});
+
+makeChart('clientCPA', {
+  type: 'bar',
+  data: {
+    labels: DATA.client_metrics.map(c => c.client_name),
+    datasets: [{
+      label: 'CPA ($)', data: DATA.client_metrics.map(c => c.CPA),
+      backgroundColor: COLORS.map(c => c+'99'), borderColor: COLORS, borderWidth: 1.5, borderRadius: 8
+    }]
+  },
+  options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: '#1a1a26' }, ticks: { color: '#6b6b8a', callback: v => '$'+v } },
+      y: { grid: { color: '#1a1a26' }, ticks: { color: '#a0a0ba' } }
+    }
+  }
+});
+
+// Client table
+const ctbl = document.getElementById('clientTable');
+ctbl.innerHTML = `<thead><tr>
+  <th>Cliente</th><th>Industria</th><th>Revenue</th><th>Spend</th>
+  <th>ROAS</th><th>CPA</th><th>CVR</th><th>CTR</th><th>LTV Est.</th><th>Retainer</th>
+</tr></thead><tbody>` +
+DATA.client_metrics.map((c,i) => `<tr>
+  <td><strong>${c.client_name}</strong></td>
+  <td><span class="badge badge-${['purple','cyan','gold','pink','green'][i]}">${c.industry}</span></td>
+  <td style="color:var(--green);font-family:'DM Mono',monospace">$${(c.total_revenue/1000).toFixed(0)}K</td>
+  <td style="font-family:'DM Mono',monospace">$${(c.total_spend/1000).toFixed(1)}K</td>
+  <td><strong style="color:${c.ROAS>=10?'var(--green)':'var(--accent3)'}">${c.ROAS}x</strong></td>
+  <td style="font-family:'DM Mono',monospace">$${c.CPA}</td>
+  <td>${c.CVR}%</td>
+  <td>${c.CTR}%</td>
+  <td style="color:var(--accent2);font-family:'DM Mono',monospace">$${c.LTV_estimated}</td>
+  <td style="font-family:'DM Mono',monospace">$${c.monthly_retainer.toLocaleString()}</td>
+</tr>`).join('') + '</tbody>';
+
+// ═══════════ CHANNEL CHARTS ═══════════
+const chColors = DATA.channel_metrics.map(c => CHANNEL_COLORS[c.channel]);
+
+makeChart('channelROAS', {
+  type: 'bar',
+  data: {
+    labels: DATA.channel_metrics.map(c => c.channel),
+    datasets: [{
+      label: 'ROAS', data: DATA.channel_metrics.map(c => c.ROAS),
+      backgroundColor: chColors, borderRadius: 8
+    }]
+  },
+  options: { responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: '#1a1a26' }, ticks: { color: '#a0a0ba' } },
+      y: { grid: { color: '#1a1a26' }, ticks: { color: '#6b6b8a', callback: v => v+'x' }, min: 8 }
+    }
+  }
+});
+
+makeChart('channelCPA', {
+  type: 'bar',
+  data: {
+    labels: DATA.channel_metrics.map(c => c.channel),
+    datasets: [
+      { label: 'CPA Neto', data: DATA.channel_metrics.map(c => c.CPA), backgroundColor: chColors, borderRadius: 6 },
+      { label: 'CPA Ajustado', data: DATA.channel_metrics.map(c => c.CPA_adj), backgroundColor: chColors.map(c => c+'55'), borderRadius: 6 }
+    ]
+  },
+  options: { responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#a0a0ba' } } },
+    scales: {
+      x: { grid: { color: '#1a1a26' }, ticks: { color: '#a0a0ba' } },
+      y: { grid: { color: '#1a1a26' }, ticks: { color: '#6b6b8a', callback: v => '$'+v } }
+    }
+  }
+});
+
+makeChart('channelCVR', {
+  type: 'radar',
+  data: {
+    labels: DATA.channel_metrics.map(c => c.channel),
+    datasets: [{
+      label: 'CVR %', data: DATA.channel_metrics.map(c => c.CVR),
+      borderColor: '#3ecfcf', backgroundColor: 'rgba(62,207,207,0.15)', borderWidth: 2, pointBackgroundColor: '#3ecfcf'
+    }]
+  },
+  options: { responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: { r: { grid: { color: '#2a2a3d' }, ticks: { color: '#6b6b8a', backdropColor: 'transparent' }, pointLabels: { color: '#a0a0ba' } } }
+  }
+});
+
+makeChart('channelBubble', {
+  type: 'bubble',
+  data: {
+    datasets: DATA.channel_metrics.map((c,i) => ({
+      label: c.channel, backgroundColor: CHANNEL_COLORS[c.channel]+'88', borderColor: CHANNEL_COLORS[c.channel],
+      data: [{ x: c.total_spend/1000, y: c.ROAS, r: Math.sqrt(c.total_conversions)/2.5 }]
+    }))
+  },
+  options: { responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#a0a0ba' } } },
+    scales: {
+      x: { grid: { color: '#1a1a26' }, ticks: { color: '#6b6b8a', callback: v => '$'+v+'K' }, title: { display: true, text: 'Spend (K)', color: '#6b6b8a' } },
+      y: { grid: { color: '#1a1a26' }, ticks: { color: '#6b6b8a', callback: v => v+'x' }, title: { display: true, text: 'ROAS', color: '#6b6b8a' } }
+    }
+  }
+});
+
+// Channel table
+const chtbl = document.getElementById('channelTable');
+chtbl.innerHTML = `<thead><tr>
+  <th>Canal</th><th>Revenue</th><th>Spend</th><th>ROAS</th>
+  <th>CPA Neto</th><th>CPA Ajustado</th><th>CVR</th><th>Conversiones</th><th>Impresiones</th>
+</tr></thead><tbody>` +
+DATA.channel_metrics.map(c => `<tr>
+  <td><span class="badge" style="background:${CHANNEL_COLORS[c.channel]}22;color:${CHANNEL_COLORS[c.channel]}">${c.channel}</span></td>
+  <td style="color:var(--green);font-family:'DM Mono',monospace">$${(c.total_revenue/1000).toFixed(0)}K</td>
+  <td style="font-family:'DM Mono',monospace">$${(c.total_spend/1000).toFixed(1)}K</td>
+  <td><strong style="color:${c.ROAS>=10?'var(--green)':'var(--accent3)'}">${c.ROAS}x</strong></td>
+  <td style="font-family:'DM Mono',monospace">$${c.CPA}</td>
+  <td style="font-family:'DM Mono',monospace;color:var(--accent2)">$${c.CPA_adj}</td>
+  <td>${c.CVR}%</td>
+  <td style="font-family:'DM Mono',monospace">${c.total_conversions.toLocaleString()}</td>
+  <td style="font-family:'DM Mono',monospace">${(c.total_impressions/1000).toFixed(0)}K</td>
+</tr>`).join('') + '</tbody>';
+
+// ═══════════ PRODUCT CHARTS ═══════════
+makeChart('productRevChart', {
+  type: 'bar',
+  data: {
+    labels: DATA.top_products.map(p => p.product_name),
+    datasets: [{
+      label: 'Revenue', data: DATA.top_products.map(p => p.total_revenue),
+      backgroundColor: COLORS.concat(COLORS), borderRadius: 6
+    }]
+  },
+  options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: '#1a1a26' }, ticks: { color: '#6b6b8a', callback: v => fmtM(v) } },
+      y: { grid: { color: '#1a1a26' }, ticks: { color: '#a0a0ba' } }
+    }
+  }
+});
+
+makeChart('productDist', {
+  type: 'doughnut',
+  data: {
+    labels: DATA.top_products.map(p => p.product_name),
+    datasets: [{
+      data: DATA.top_products.map(p => p.total_revenue),
+      backgroundColor: COLORS.concat(COLORS), borderColor: '#0a0a0f', borderWidth: 3
+    }]
+  },
+  options: { responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { color: '#a0a0ba', padding: 8, font: { size: 10 } } } }
+  }
+});
+
+const totalRevenue = DATA.top_products.reduce((s,p) => s+p.total_revenue, 0);
+const ptbl = document.getElementById('productTable');
+ptbl.innerHTML = `<thead><tr>
+  <th>#</th><th>Producto</th><th>Precio Unit.</th><th>Unidades</th>
+  <th>Revenue Total</th><th>% del Total</th><th>Revenue/Unidad</th>
+</tr></thead><tbody>` +
+DATA.top_products.map((p,i) => {
+  const pct = (p.total_revenue/totalRevenue*100).toFixed(1);
+  const rvpu = (p.total_revenue/p.total_units).toFixed(0);
+  return `<tr>
+    <td><span class="rank-num" style="background:${COLORS[i]}33;color:${COLORS[i]}">${i+1}</span></td>
+    <td><strong>${p.product_name}</strong></td>
+    <td style="font-family:'DM Mono',monospace">$${p.price_usd}</td>
+    <td style="font-family:'DM Mono',monospace">${p.total_units.toLocaleString()}</td>
+    <td style="color:var(--green);font-family:'DM Mono',monospace">$${(p.total_revenue/1000).toFixed(0)}K</td>
+    <td>
+      <div class="metric-bar-wrap">
+        <div class="metric-bar"><div class="metric-bar-fill" style="--fill-color:${COLORS[i]};width:${pct*1.5}%"></div></div>
+        <span class="metric-val">${pct}%</span>
+      </div>
+    </td>
+    <td style="font-family:'DM Mono',monospace;color:var(--accent2)">$${rvpu}</td>
+  </tr>`;
+}).join('') + '</tbody>';
+
+// ═══════════ TAB SWITCHING ═══════════
+function switchTab(e, id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  e.target.classList.add('active');
+  document.getElementById(id).classList.add('active');
+}
+</script>
+</body>
+</html>
